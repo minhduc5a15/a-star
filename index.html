@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A* Algo v8: Inspector Mode</title>
+  <style>
+    :root {
+      --bg: #1e1e2e;
+      --panel: #252535;
+      --text: #cdd6f4;
+      --accent: #89b4fa;
+      --green: #a6e3a1;
+      --red: #f38ba8;
+      --yellow: #f9e2af;
+      --purple: #cba6f7;
+      --border: #45475a;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* --- LEFT PANEL: GRID --- */
+    .grid-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      border-right: 2px solid var(--border);
+      position: relative;
+      overflow: auto;
+    }
+
+    #grid {
+      display: grid;
+      gap: 1px;
+      background-color: var(--border);
+      border: 1px solid var(--border);
+    }
+
+    .cell {
+      width: 30px;
+      height: 30px;
+      background-color: #313244;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px;
+      cursor: pointer;
+      user-select: none;
+      color: rgba(255, 255, 255, 0.7);
+      box-sizing: border-box;
+    }
+
+    .cell:hover {
+      border: 1px solid white;
+      z-index: 100;
+    }
+
+    /* Highlight nhẹ khi hover */
+    .f-val {
+      font-weight: bold;
+      font-size: 9px;
+      color: white;
+      pointer-events: none;
+    }
+
+    /* States */
+    .wall {
+      background-color: #585b70;
+      border: none;
+    }
+
+    .start {
+      background-color: var(--green);
+      color: black !important;
+      font-weight: bold;
+      cursor: grab;
+      font-size: 14px;
+      z-index: 5;
+    }
+
+    .end {
+      background-color: var(--red);
+      color: black !important;
+      font-weight: bold;
+      cursor: grab;
+      font-size: 14px;
+      z-index: 5;
+    }
+
+    .open {
+      background-color: var(--accent);
+      color: black !important;
+    }
+
+    .closed {
+      background-color: #45475a;
+      color: #a6adc8 !important;
+    }
+
+    .current {
+      background-color: var(--purple);
+      color: black !important;
+      box-shadow: inset 0 0 0 2px white;
+      z-index: 2;
+    }
+
+    .path {
+      background-color: var(--yellow);
+      color: black !important;
+    }
+
+    /* --- RIGHT PANEL --- */
+    .debug-panel {
+      width: 400px;
+      background-color: var(--panel);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: -5px 0 15px rgba(0, 0, 0, 0.3);
+      z-index: 20;
+    }
+
+    .settings-box {
+      background-color: #181825;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    input[type="number"] {
+      background: #313244;
+      border: 1px solid var(--border);
+      color: white;
+      padding: 5px;
+      width: 40px;
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    .full-width {
+      grid-column: span 3;
+    }
+
+    button {
+      padding: 10px;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      color: #1e1e2e;
+      transition: 0.2s;
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    button:hover {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+      filter: grayscale(1);
+    }
+
+    .btn-rand {
+      background-color: var(--purple);
+      color: white;
+    }
+
+    .btn-start {
+      background-color: var(--green);
+    }
+
+    .btn-next {
+      background-color: var(--accent);
+    }
+
+    .btn-prev {
+      background-color: #fab387;
+    }
+
+    .btn-auto {
+      background-color: var(--yellow);
+    }
+
+    .btn-reset {
+      background-color: var(--red);
+      color: white;
+    }
+
+    .info-box {
+      background-color: #181825;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    h3 {
+      margin: 0 0 8px 0;
+      color: var(--accent);
+      font-size: 13px;
+      text-transform: uppercase;
+      border-bottom: 1px solid #444;
+      padding-bottom: 5px;
+    }
+
+    .math-box {
+      font-family: 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #cdd6f4;
+    }
+
+    .math-highlight {
+      color: var(--yellow);
+      font-weight: bold;
+    }
+
+    .math-sub {
+      font-size: 11px;
+      color: #7f849c;
+      display: block;
+      margin-top: 4px;
+      font-style: italic;
+    }
+
+    .open-list-container {
+      flex-grow: 1;
+      overflow-y: auto;
+      max-height: 250px;
+    }
+
+    .open-list-container::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .open-list-container::-webkit-scrollbar-thumb {
+      background: #45475a;
+      border-radius: 3px;
+    }
+
+    .node-card {
+      display: flex;
+      justify-content: space-between;
+      background: #313244;
+      margin-bottom: 4px;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      border-left: 3px solid transparent;
+      align-items: center;
+    }
+
+    .node-card.best {
+      border-left: 3px solid var(--green);
+      background: #45475a;
+    }
+
+    .val-badge {
+      background: #11111b;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--yellow);
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="grid-container">
+    <h2 style="margin-top: 0; color: var(--purple); position: absolute; top: 10px; left: 20px;">A* Pathfinding</h2>
+    <div id="grid"></div>
+  </div>
+
+  <div class="debug-panel">
+    <div class="settings-box">
+      <div style="font-size: 12px;">
+        Size: <input type="number" id="inpCols" value="15" min="5" max="30"> x
+        <input type="number" id="inpRows" value="15" min="5" max="30">
+      </div>
+      <button class="btn-apply" onclick="applySettings()" style="padding: 5px 10px; font-size: 10px;">Apply</button>
+    </div>
+
+    <div class="controls">
+      <button class="btn-rand full-width" onclick="generateRandomWalls()" id="btnRand">🎲 Random Walls</button>
+      <button class="btn-start full-width" onclick="initSearch()" id="btnInit">1. Start</button>
+
+      <button class="btn-prev" onclick="prevStep()" id="btnPrev" disabled>⏪ Prev</button>
+      <button class="btn-next" onclick="nextStep()" id="btnNext" disabled>Next ⏩</button>
+      <button class="btn-auto" onclick="toggleAuto()" id="btnAuto" disabled>Auto ▶</button>
+
+      <button class="btn-reset full-width" onclick="resetAll()" id="btnReset">Reset</button>
+    </div>
+
+    <div class="info-box">
+      <h3>🧮 Phân tích (Click Grid để xem)</h3>
+      <div id="math-display" class="math-box">
+        Chọn một ô trên lưới...
+      </div>
+    </div>
+
+    <div class="info-box" style="flex-grow: 1; display: flex; flex-direction: column;">
+      <h3>📋 Open List</h3>
+      <div id="open-list" class="open-list-container"></div>
+    </div>
+  </div>
+
+  <script>
+    let ROWS = 15;
+    let COLS = 15;
+    const gridEl = document.getElementById('grid');
+
+    let grid = [];
+    let startNode = { x: 2, y: 7 };
+    let endNode = { x: 12, y: 7 };
+
+    let openSet = [];
+    let closedSet = [];
+    let historyStack = [];
+
+    let isRunning = false;
+    let isFinished = false;
+    let isAuto = false;
+    let autoInterval = null;
+    let isMouseDown = false;
+    let dragMode = null;
+
+    // --- SETUP ---
+    function applySettings() {
+      if (isRunning) { alert("Reset trước!"); return; }
+      const c = parseInt(document.getElementById('inpCols').value);
+      const r = parseInt(document.getElementById('inpRows').value);
+      if (c < 5 || c > 50 || r < 5 || r > 50) return;
+      COLS = c; ROWS = r;
+      startNode = { x: 0, y: 0 };
+      endNode = { x: COLS - 1, y: ROWS - 1 };
+      createGrid();
+    }
+
+    function createGrid() {
+      gridEl.innerHTML = '';
+      gridEl.style.gridTemplateColumns = `repeat(${COLS}, 30px)`;
+      grid = new Array(ROWS).fill(0).map(() => new Array(COLS).fill(0));
+
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+
+          // Mouse Event Handlers
+          cell.onmousedown = (e) => handleMouseDown(x, y, e);
+          cell.onmouseenter = (e) => handleMouseEnter(x, y, e);
+          cell.onmouseup = () => handleMouseUp();
+
+          if (x === startNode.x && y === startNode.y) { cell.classList.add('start'); cell.innerHTML = "S"; }
+          else if (x === endNode.x && y === endNode.y) { cell.classList.add('end'); cell.innerHTML = "E"; }
+
+          gridEl.appendChild(cell);
+          grid[y][x] = { x, y, isWall: false, f: 0, g: 0, h: 0, parent: null, el: cell, state: 'none' };
+        }
+      }
+      document.body.onmouseup = handleMouseUp;
+    }
+
+    // --- MOUSE & INSPECTION ---
+    function handleMouseDown(x, y, e) {
+      // LUÔN LUÔN HIỂN THỊ THÔNG TIN KHI CLICK
+      explainMath(grid[y][x]);
+
+      // Nếu đang chạy hoặc đã xong, chặn việc vẽ tường
+      if (isRunning || isFinished) return;
+
+      e.preventDefault(); isMouseDown = true;
+      if (x === startNode.x && y === startNode.y) dragMode = 'start';
+      else if (x === endNode.x && y === endNode.y) dragMode = 'end';
+      else { dragMode = 'wall'; toggleWall(x, y); }
+    }
+
+    function handleMouseEnter(x, y, e) {
+      if (!isMouseDown || isRunning || isFinished) return;
+
+      if (dragMode === 'start') {
+        if (x === endNode.x && y === endNode.y) return;
+        updateNodePos('start', x, y);
+        explainMath(grid[y][x]); // Update math box khi drag start
+      } else if (dragMode === 'end') {
+        if (x === startNode.x && y === startNode.y) return;
+        updateNodePos('end', x, y);
+        explainMath(grid[y][x]); // Update math box khi drag end
+      } else if (dragMode === 'wall') {
+        toggleWall(x, y);
+      }
+    }
+    function handleMouseUp() { isMouseDown = false; dragMode = null; }
+
+    function updateNodePos(type, x, y) {
+      let oldPos = type === 'start' ? startNode : endNode;
+      let oldNode = grid[oldPos.y][oldPos.x];
+      oldNode.el.classList.remove(type); oldNode.el.innerHTML = "";
+
+      if (type === 'start') startNode = { x, y }; else endNode = { x, y };
+      let newNode = grid[y][x];
+      newNode.el.classList.add(type); newNode.el.innerHTML = type === 'start' ? "S" : "E";
+      newNode.isWall = false; newNode.el.classList.remove('wall');
+    }
+
+    function toggleWall(x, y) {
+      if ((x === startNode.x && y === startNode.y) || (x === endNode.x && y === endNode.y)) return;
+      let node = grid[y][x];
+      node.isWall = !node.isWall;
+      node.el.classList.toggle('wall');
+      explainMath(node); // Update info ngay khi vẽ tường
+    }
+
+    // --- ALGORITHM LOGIC ---
+    function explainMath(node) {
+      const div = document.getElementById('math-display');
+      const end = grid[endNode.y][endNode.x];
+
+      // Tính toán H dự kiến (ngay cả khi chưa đi tới)
+      let dx = Math.abs(node.x - end.x);
+      let dy = Math.abs(node.y - end.y);
+      let h_calc = dx + dy;
+
+      let headerColor = "white";
+      let statusText = "Chưa xét (None)";
+
+      if (node.isWall) { statusText = "Vật cản (Wall)"; headerColor = "#7f849c"; }
+      else if (node.x === startNode.x && node.y === startNode.y) { statusText = "Điểm Bắt Đầu"; headerColor = "var(--green)"; }
+      else if (node.x === endNode.x && node.y === endNode.y) { statusText = "Điểm Đích"; headerColor = "var(--red)"; }
+      else if (node.state === 'open') { statusText = "Trong hàng đợi (Open)"; headerColor = "var(--accent)"; }
+      else if (node.state === 'closed') { statusText = "Đã duyệt (Closed)"; headerColor = "#5dade2"; }
+      else if (node.state === 'path') { statusText = "Đường đi ngắn nhất"; headerColor = "var(--yellow)"; }
+
+      let html = `<div style="font-size:14px; margin-bottom:8px; border-bottom:1px solid #444; padding-bottom:5px;">
+            Node [${node.x}, ${node.y}] <span style="float:right; color:${headerColor}; font-size:12px;">${statusText}</span>
+        </div>`;
+
+      if (node.isWall) {
+        html += `<div style="color:#777; font-style:italic;">Không thể đi qua ô này.</div>`;
+      } else {
+        // Nếu node chưa được thuật toán chạm tới, F và G = 0. Ta hiển thị H dự kiến.
+        let g_display = node.state === 'none' ? "?" : node.g;
+        let f_display = node.state === 'none' ? "?" : node.f;
+
+        html += `<div style="font-size:16px; margin-bottom:5px;">
+                <span class="math-highlight">F(${f_display})</span> = 
+                <span style="color:var(--green)">G(${g_display})</span> + 
+                <span style="color:var(--yellow)">H(${h_calc})</span>
+            </div>`;
+
+        html += `<span class="math-sub">• <b style="color:var(--green)">G</b>: ${node.state === 'none' ? 'Chưa đi tới' : 'Cách Start ' + node.g + ' bước'}.</span>`;
+        html += `<span class="math-sub">• <b style="color:var(--yellow)">H</b>: Manhattan (|${node.x}-${end.x}|+|${node.y}-${end.y}|) = ${h_calc}</span>`;
+
+        if (node.parent) {
+          html += `<span class="math-sub">• <b>Parent</b>: [${node.parent.x}, ${node.parent.y}]</span>`;
+        }
+      }
+
+      div.innerHTML = html;
+    }
+
+    // --- SAVE/RESTORE STATE ---
+    function saveState() {
+      const snapshot = {
+        gridData: grid.map(row => row.map(n => ({
+          f: n.f, g: n.g, h: n.h, state: n.state,
+          parent: n.parent ? { x: n.parent.x, y: n.parent.y } : null
+        }))),
+        openSetCoords: openSet.map(n => ({ x: n.x, y: n.y })),
+        closedSetCoords: closedSet.map(n => ({ x: n.x, y: n.y })),
+        isFinished: isFinished
+      };
+      historyStack.push(JSON.stringify(snapshot));
+      document.getElementById('btnPrev').disabled = false;
+    }
+
+    function restoreState(jsonState) {
+      const state = JSON.parse(jsonState);
+      isFinished = state.isFinished;
+
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          const saved = state.gridData[y][x];
+          const node = grid[y][x];
+
+          node.f = saved.f; node.g = saved.g; node.h = saved.h;
+          node.state = saved.state;
+
+          if (saved.parent) node.parent = grid[saved.parent.y][saved.parent.x];
+          else node.parent = null;
+
+          updateCellVisual(node, node.state, true);
+        }
+      }
+
+      openSet = state.openSetCoords.map(c => grid[c.y][c.x]);
+      closedSet = state.closedSetCoords.map(c => grid[c.y][c.x]);
+
+      renderOpenList();
+      const current = openSet.length > 0 ? openSet.reduce((a, b) => a.f < b.f ? a : b) : null;
+      if (current && !isFinished) explainMath(current);
+      // Không reset math box để người dùng có thể đang inspect cái gì đó
+
+      if (historyStack.length === 0) document.getElementById('btnPrev').disabled = true;
+    }
+
+    // --- CORE A* ---
+    function initSearch() {
+      if (isRunning) return;
+      isRunning = true; isFinished = false; historyStack = [];
+      toggleControls(true);
+
+      openSet = []; closedSet = [];
+      let start = grid[startNode.y][startNode.x];
+      let end = grid[endNode.y][endNode.x];
+
+      start.g = 0;
+      start.h = Math.abs(start.x - end.x) + Math.abs(start.y - end.y);
+      start.f = start.g + start.h;
+      start.state = 'open';
+      openSet.push(start);
+
+      updateCellVisual(start, 'open');
+      renderOpenList();
+      explainMath(start);
+    }
+
+    function prevStep() {
+      if (historyStack.length === 0) return;
+      if (isAuto) toggleAuto();
+      const lastState = historyStack.pop();
+      restoreState(lastState);
+      isFinished = false;
+      document.getElementById('btnNext').disabled = false;
+      document.getElementById('btnAuto').disabled = false;
+    }
+
+    function nextStep() {
+      if (isFinished || openSet.length === 0) return;
+      saveState();
+
+      let lowestIndex = 0;
+      for (let i = 0; i < openSet.length; i++) {
+        if (openSet[i].f < openSet[lowestIndex].f) lowestIndex = i;
+      }
+      let current = openSet[lowestIndex];
+      explainMath(current);
+
+      if (current.x === endNode.x && current.y === endNode.y) {
+        isFinished = true;
+        reconstructPath(current);
+        document.getElementById('btnNext').disabled = true;
+        document.getElementById('btnAuto').disabled = true;
+        clearInterval(autoInterval); isAuto = false;
+        return;
+      }
+
+      openSet.splice(lowestIndex, 1);
+      closedSet.push(current);
+      current.state = 'closed';
+      updateCellVisual(current, 'current');
+
+      let neighbors = getNeighbors(current);
+      for (let neighbor of neighbors) {
+        if (closedSet.includes(neighbor) || neighbor.isWall) continue;
+        let tempG = current.g + 1;
+        let newPath = false;
+        if (openSet.includes(neighbor)) {
+          if (tempG < neighbor.g) { neighbor.g = tempG; newPath = true; }
+        } else {
+          neighbor.g = tempG; newPath = true; openSet.push(neighbor); neighbor.state = 'open';
+        }
+        if (newPath) {
+          neighbor.h = Math.abs(neighbor.x - endNode.x) + Math.abs(neighbor.y - endNode.y);
+          neighbor.f = neighbor.g + neighbor.h;
+          neighbor.parent = current;
+          updateCellVisual(neighbor, 'open');
+        }
+      }
+      closedSet.forEach(n => { if (n !== current) updateCellVisual(n, 'closed'); });
+      renderOpenList();
+    }
+
+    // --- HELPERS ---
+    function generateRandomWalls() {
+      if (isRunning) return;
+      resetAll(false);
+      for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+        if ((x === startNode.x && y === startNode.y) || (x === endNode.x && y === endNode.y)) continue;
+        if (Math.random() < 0.3) {
+          grid[y][x].isWall = true; grid[y][x].el.classList.add('wall');
+        }
+      }
+    }
+
+    function getNeighbors(node) {
+      let res = []; let x = node.x, y = node.y;
+      if (y > 0) res.push(grid[y - 1][x]);
+      if (y < ROWS - 1) res.push(grid[y + 1][x]);
+      if (x > 0) res.push(grid[y][x - 1]);
+      if (x < COLS - 1) res.push(grid[y][x + 1]);
+      return res;
+    }
+
+    function reconstructPath(current) {
+      let temp = current;
+      while (temp.parent) {
+        temp = temp.parent;
+        if (temp !== grid[startNode.y][startNode.x]) {
+          temp.state = 'path';
+          updateCellVisual(temp, 'path');
+        }
+      }
+    }
+
+    function updateCellVisual(node, type, force = false) {
+      const isSE = (node.x === startNode.x && node.y === startNode.y) || (node.x === endNode.x && node.y === endNode.y);
+
+      if (force || type === 'reset') {
+        node.el.className = 'cell';
+        if (node.isWall) node.el.classList.add('wall');
+        if (node.x === startNode.x && node.y === startNode.y) node.el.classList.add('start');
+        if (node.x === endNode.x && node.y === endNode.y) node.el.classList.add('end');
+        if (!isSE) node.el.innerHTML = '';
+      }
+
+      if (!isSE) {
+        if (type === 'open') node.el.classList.add('open');
+        else if (type === 'closed') node.el.classList.add('closed');
+        else if (type === 'current') node.el.classList.add('current');
+        else if (type === 'path') node.el.classList.add('path');
+
+        if (['open', 'closed', 'current', 'path'].includes(type)) {
+          node.el.innerHTML = `<span class="f-val">${node.f}</span>`;
+        } else {
+          node.el.innerHTML = '';
+        }
+      }
+    }
+
+    function renderOpenList() {
+      const listEl = document.getElementById('open-list');
+      listEl.innerHTML = '';
+      let sorted = [...openSet].sort((a, b) => a.f - b.f || a.h - b.h);
+      if (sorted.length === 0) { listEl.innerHTML = '<div style="color:#555; text-align:center;">Empty</div>'; return; }
+
+      sorted.forEach((n, i) => {
+        const div = document.createElement('div');
+        div.className = `node-card ${i === 0 ? 'best' : ''}`;
+        div.innerHTML = `<span>${i === 0 ? '👉' : ''} [${n.x},${n.y}]</span> <span class="val-badge">F:${n.f}</span>`;
+        div.onmouseenter = () => { explainMath(n); }; // Hover to explain
+        listEl.appendChild(div);
+      });
+    }
+
+    function toggleAuto() {
+      isAuto = !isAuto;
+      const btn = document.getElementById('btnAuto');
+      if (isAuto) {
+        btn.innerText = "Pause ⏸"; btn.style.backgroundColor = "#fab387";
+        if (!autoInterval) autoInterval = setInterval(nextStep, 150);
+      } else {
+        btn.innerText = "Auto ▶"; btn.style.backgroundColor = "#f9e2af";
+        clearInterval(autoInterval); autoInterval = null;
+      }
+    }
+
+    function toggleControls(disable) {
+      document.getElementById('btnRand').disabled = disable;
+      document.getElementById('btnInit').disabled = disable;
+      document.getElementById('btnNext').disabled = !disable;
+      document.getElementById('btnAuto').disabled = !disable;
+      document.getElementById('inpCols').disabled = disable;
+      document.getElementById('inpRows').disabled = disable;
+    }
+
+    function resetAll(hard = true) {
+      isRunning = false; isFinished = false;
+      clearInterval(autoInterval); isAuto = false;
+      historyStack = [];
+      toggleControls(false);
+      document.getElementById('btnPrev').disabled = true;
+      document.getElementById('math-display').innerHTML = "Chọn một ô trên lưới...";
+      document.getElementById('open-list').innerHTML = '';
+
+      if (hard) createGrid();
+      else {
+        for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+          let n = grid[y][x];
+          n.f = 0; n.g = 0; n.h = 0; n.parent = null; n.state = 'none';
+          updateCellVisual(n, 'reset');
+        }
+      }
+    }
+
+    createGrid();
+  </script>
+</body>
+
+</html>
